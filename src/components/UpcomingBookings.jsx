@@ -1,7 +1,7 @@
 import React from 'react';
-import { Calendar, Clock, Phone, Users, MapPin } from 'lucide-react';
+import { Calendar, Clock, Phone, Users, MapPin, RefreshCw } from 'lucide-react';
 
-const UpcomingBookings = ({ bookings, services }) => {
+const UpcomingBookings = ({ bookings, services, onRefresh }) => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-IN', {
@@ -49,11 +49,21 @@ const UpcomingBookings = ({ bookings, services }) => {
       <div className="card">
         <div className="card-header">
           <div>
-            <h2 className="card-title">Upcoming Bookings</h2>
+            <h2 className="card-title">📅 Upcoming Bookings</h2>
             <p className="card-subtitle">
               {bookings.length} appointment{bookings.length !== 1 ? 's' : ''} scheduled
             </p>
           </div>
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="btn btn-small btn-secondary"
+              title="Refresh to move past bookings to completed"
+            >
+              <RefreshCw size={16} />
+              Refresh Status
+            </button>
+          )}
         </div>
 
         <div className="card-content">

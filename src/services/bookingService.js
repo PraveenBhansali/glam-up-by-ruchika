@@ -60,7 +60,27 @@ export const createBooking = async (bookingData, retryCount = 0) => {
   }
 }
 
-// Get all bookings
+// Update a booking
+export const updateBooking = async (bookingId, updateData) => {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .update(updateData)
+      .eq('id', bookingId)
+      .select()
+
+    if (error) throw error
+    return { success: true, data: data[0] }
+  } catch (error) {
+    console.error('Error updating booking:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// Update booking status specifically
+export const updateBookingStatus = async (bookingId, status) => {
+  return updateBooking(bookingId, { status });
+}
 export const getBookings = async () => {
   try {
     const { data, error } = await supabase

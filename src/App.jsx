@@ -136,25 +136,86 @@ function App() {
     }
   }, [workers, isLoading]);
 
-  // Auto-update booking statuses (lightweight - only on app load)
+  // Manual refresh function for status updates
+  const handleRefreshStatuses = async () => {
+    const now = new Date();
+    const updatedBookingIds = [];
+    
+    setBookings(prevBookings => {
+      const newBookings = prevBookings.map(booking => {
+        if (booking.status === 'upcoming') {
+          const bookingDateTime = new Date(`${booking.date}T${booking.time}`);
+          if (bookingDateTime < now) {
+            updatedBookingIds.push(booking.id);
+            return { ...booking, status: 'completed' };
+          }
+        }
+        return booking;
+      });
+      
+      // Update database for changed bookings
+      if (updatedBookingIds.length > 0) {
+        updatedBookingIds.forEach(async (bookingId) => {
+          try {
+            const { updateBooking } = await import('./services/bookingService');
+            await updateBooking(bookingId, { status: 'completed' });
+            console.log(`✅ Moved booking ${bookingId} to completed status`);
+          } catch (error) {
+            console.error(`❌ Failed to update booking ${bookingId} status:`, error);
+          }
+        });
+        
+        console.log(`✅ Moved ${updatedBookingIds.length} booking${updatedBookingIds.length > 1 ? 's' : ''} to completed!`);
+      } else {
+        console.log('ℹ️ No bookings to move - all are current');
+      }
+      
+      return newBookings;
+    });
+  };
+
+  // Auto-update booking statuses (checks every 5 minutes + on app load)
   useEffect(() => {
-    const updateStatuses = () => {
+    const updateStatuses = async () => {
       const now = new Date();
-      setBookings(prevBookings => 
-        prevBookings.map(booking => {
+      const updatedBookingIds = [];
+      
+      setBookings(prevBookings => {
+        const newBookings = prevBookings.map(booking => {
           if (booking.status === 'upcoming') {
             const bookingDateTime = new Date(`${booking.date}T${booking.time}`);
             if (bookingDateTime < now) {
+              updatedBookingIds.push(booking.id);
               return { ...booking, status: 'completed' };
             }
           }
           return booking;
-        })
-      );
+        });
+        
+        // Update database for changed bookings (async, non-blocking)
+        if (updatedBookingIds.length > 0) {
+          updatedBookingIds.forEach(async (bookingId) => {
+            try {
+              const { updateBooking } = await import('./services/bookingService');
+              await updateBooking(bookingId, { status: 'completed' });
+              console.log(`✅ Moved booking ${bookingId} to completed status`);
+            } catch (error) {
+              console.error(`❌ Failed to update booking ${bookingId} status:`, error);
+            }
+          });
+        }
+        
+        return newBookings;
+      });
     };
 
-    // Only run once on app load, not continuously
+    // Run immediately on load
     updateStatuses();
+    
+    // Then check every 5 minutes (lightweight)
+    const interval = setInterval(updateStatuses, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(interval);
   }, []);
 
   const tabs = [
@@ -175,7 +236,11 @@ function App() {
           onTabChange={setActiveTab}
         />;
       case 'upcoming':
-        return <UpcomingBookings bookings={bookings.filter(b => b.status === 'upcoming')} services={services} />;
+        return <UpcomingBookings 
+          bookings={bookings.filter(b => b.status === 'upcoming')} 
+          services={services} 
+          onRefresh={handleRefreshStatuses}
+        />;
       case 'completed':
         return <CompletedBookings 
           bookings={bookings.filter(b => b.status === 'completed')} 
