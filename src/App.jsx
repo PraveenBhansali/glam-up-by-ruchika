@@ -137,19 +137,37 @@ function App() {
 
   // Auto-update booking statuses
   useEffect(() => {
-    const updateStatuses = () => {
+    const updateStatuses = async () => {
       const now = new Date();
-      setBookings(prevBookings => 
-        prevBookings.map(booking => {
+      const updatedBookings = [];
+      
+      setBookings(prevBookings => {
+        const newBookings = prevBookings.map(booking => {
           if (booking.status === 'upcoming') {
             const bookingDateTime = new Date(`${booking.date}T${booking.time}`);
             if (bookingDateTime < now) {
+              updatedBookings.push(booking.id); // Track which bookings need DB update
               return { ...booking, status: 'completed' };
             }
           }
           return booking;
-        })
-      );
+        });
+        
+        // Update database for changed bookings
+        if (updatedBookings.length > 0) {
+          updatedBookings.forEach(async (bookingId) => {
+            try {
+              const { updateBookingStatus } = await import('./services/bookingService');
+              await updateBookingStatus(bookingId, 'completed');
+              console.log(`Updated booking ${bookingId} status to completed in database`);
+            } catch (error) {
+              console.error(`Failed to update booking ${bookingId} status in database:`, error);
+            }
+          });
+        }
+        
+        return newBookings;
+      });
     };
 
     updateStatuses();
@@ -169,7 +187,11 @@ function App() {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case 'new-booking':
-        return <NewBooking services={services} onBookingCreate={(booking) => setBookings([...bookings, booking])} />;
+        return <NewBooking 
+          services={services} 
+          onBookingCreate={(booking) => setBookings([...bookings, booking])} 
+          onTabChange={setActiveTab}
+        />;
       case 'upcoming':
         return <UpcomingBookings bookings={bookings.filter(b => b.status === 'upcoming')} services={services} />;
       case 'completed':
@@ -188,7 +210,11 @@ function App() {
       case 'workers':
         return <WorkersManager workers={workers} onWorkersUpdate={setWorkers} />;
       default:
-        return <NewBooking services={services} onBookingCreate={(booking) => setBookings([...bookings, booking])} />;
+        return <NewBooking 
+          services={services} 
+          onBookingCreate={(booking) => setBookings([...bookings, booking])} 
+          onTabChange={setActiveTab}
+        />;
     }
   };
 

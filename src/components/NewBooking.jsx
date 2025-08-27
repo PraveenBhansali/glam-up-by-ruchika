@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, User, Phone, Calendar, Clock, DollarSign, Users } from 'lucide-react';
 import { createBooking } from '../services/bookingService';
 
-const NewBooking = ({ services, onBookingCreate }) => {
+const NewBooking = ({ services, onBookingCreate, onTabChange }) => {
   const [formData, setFormData] = useState({
     clientName: '',
     clientPhone: '',
@@ -22,6 +22,12 @@ const NewBooking = ({ services, onBookingCreate }) => {
       // Find the selected service
       const selectedService = services.find(s => s.id === parseInt(formData.primaryService));
       
+      // Determine booking status based on date/time
+      const bookingDateTime = new Date(`${formData.date}T${formData.time}`);
+      const now = new Date();
+      const isOldBooking = bookingDateTime < now;
+      const bookingStatus = isOldBooking ? 'completed' : 'upcoming';
+      
       const bookingData = {
         name: formData.clientName,
         email: '', // We can add email field later if needed
@@ -32,7 +38,7 @@ const NewBooking = ({ services, onBookingCreate }) => {
         notes: formData.notes,
         estimated_people: parseInt(formData.estimatedPeople),
         service_price: selectedService ? selectedService.clientPrice : 0,
-        status: 'upcoming'
+        status: bookingStatus
       };
 
       const result = await createBooking(bookingData);
@@ -48,7 +54,7 @@ const NewBooking = ({ services, onBookingCreate }) => {
           primaryService: parseInt(formData.primaryService),
           estimatedPeople: parseInt(formData.estimatedPeople),
           notes: formData.notes,
-          status: 'upcoming',
+          status: bookingStatus, // Use the smart status
           createdAt: result.data.created_at,
           members: [],
           totalAmount: selectedService ? selectedService.clientPrice : 0
@@ -62,13 +68,21 @@ const NewBooking = ({ services, onBookingCreate }) => {
           clientPhone: '',
           date: '',
           time: '',
-          primaryService: '',
-          estimatedPeople: 1,
+          primaryService: services.length > 0 ? services[0].id : '',
+          estimatedPeople: '1',
           notes: ''
         });
         
-        // Show success message
-        alert('Booking created successfully! 🎉✨ Your data is now saved online!');
+        // Show success message and redirect based on booking type
+        if (isOldBooking) {
+          alert('✅ Past booking added successfully!\n\n📋 Redirecting to Completed tab where you can add more details like payment info, photos, etc.');
+          // Redirect to completed tab if callback provided
+          if (onTabChange) {
+            setTimeout(() => onTabChange('completed'), 1000);
+          }
+        } else {
+          alert('✅ Booking created successfully!\n\n📅 Your upcoming booking has been saved to the cloud database!');
+        }
       } else {
         alert('Error creating booking: ' + result.error + '\n\nFalling back to local storage...');
         
