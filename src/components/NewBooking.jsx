@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Plus, User, Phone, Calendar, Clock, DollarSign, Users } from 'lucide-react';
 import { createBooking } from '../services/bookingService';
+import { useToast } from '../contexts/ToastContext';
 
 const NewBooking = ({ services, onBookingCreate, onTabChange }) => {
+  const { success, error } = useToast();
   const [formData, setFormData] = useState({
     clientName: '',
     clientPhone: '',
@@ -75,16 +77,16 @@ const NewBooking = ({ services, onBookingCreate, onTabChange }) => {
         
         // Show success message and redirect based on booking type
         if (isOldBooking) {
-          alert('✅ Past booking added successfully!\n\n📋 Redirecting to Completed tab where you can add more details like payment info, photos, etc.');
+          success('✅ Past booking added successfully! Redirecting to Completed tab...', 4000);
           // Redirect to completed tab if callback provided
           if (onTabChange) {
-            setTimeout(() => onTabChange('completed'), 1000);
+            setTimeout(() => onTabChange('completed'), 2000);
           }
         } else {
-          alert('✅ Booking created successfully!\n\n📅 Your upcoming booking has been saved to the cloud database!');
+          success('✅ Booking created successfully! Saved to cloud database.', 3000);
         }
       } else {
-        alert('Error creating booking: ' + result.error + '\n\nFalling back to local storage...');
+        error('Failed to create booking: ' + result.error, 5000);
         
         // Fallback to local storage if Supabase fails
         const booking = {

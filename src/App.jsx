@@ -9,6 +9,7 @@ import BookingHistory from './components/BookingHistory';
 import { getBookings } from './services/bookingService';
 import { getServices } from './services/servicesService';
 import { getWorkers } from './services/workersService';
+import { ToastProvider } from './contexts/ToastContext';
 import './App.css';
 
 function App() {
@@ -135,44 +136,25 @@ function App() {
     }
   }, [workers, isLoading]);
 
-  // Auto-update booking statuses
+  // Auto-update booking statuses (lightweight - only on app load)
   useEffect(() => {
-    const updateStatuses = async () => {
+    const updateStatuses = () => {
       const now = new Date();
-      const updatedBookings = [];
-      
-      setBookings(prevBookings => {
-        const newBookings = prevBookings.map(booking => {
+      setBookings(prevBookings => 
+        prevBookings.map(booking => {
           if (booking.status === 'upcoming') {
             const bookingDateTime = new Date(`${booking.date}T${booking.time}`);
             if (bookingDateTime < now) {
-              updatedBookings.push(booking.id); // Track which bookings need DB update
               return { ...booking, status: 'completed' };
             }
           }
           return booking;
-        });
-        
-        // Update database for changed bookings
-        if (updatedBookings.length > 0) {
-          updatedBookings.forEach(async (bookingId) => {
-            try {
-              const { updateBookingStatus } = await import('./services/bookingService');
-              await updateBookingStatus(bookingId, 'completed');
-              console.log(`Updated booking ${bookingId} status to completed in database`);
-            } catch (error) {
-              console.error(`Failed to update booking ${bookingId} status in database:`, error);
-            }
-          });
-        }
-        
-        return newBookings;
-      });
+        })
+      );
     };
 
+    // Only run once on app load, not continuously
     updateStatuses();
-    const interval = setInterval(updateStatuses, 60000); // Check every minute
-    return () => clearInterval(interval);
   }, []);
 
   const tabs = [
@@ -219,46 +201,48 @@ function App() {
   };
 
   return (
-    <div className="app">
-      <div className="app-container">
-        <header className="app-header">
-          <div className="header-content">
-            <h1>💄 Glam Up by Ruchika</h1>
-            <p>Ruchika Bhansali | Certified Makeup Artist | Gadag, Karnataka</p>
-          </div>
-        </header>
+    <ToastProvider>
+      <div className="app">
+        <div className="app-container">
+          <header className="app-header">
+            <div className="header-content">
+              <h1>💄 Glam Up by Ruchika</h1>
+              <p>Ruchika Bhansali | Certified Makeup Artist | Gadag, Karnataka</p>
+            </div>
+          </header>
 
-        <nav className="app-nav">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <div className="nav-tab-icon">
-                  <span className="nav-emoji">{tab.emoji}</span>
-                  <Icon size={16} />
-                </div>
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+          <nav className="app-nav">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <div className="nav-tab-icon">
+                    <span className="nav-emoji">{tab.emoji}</span>
+                    <Icon size={16} />
+                  </div>
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-        <main className="app-main">
-          {renderActiveComponent()}
-        </main>
+          <main className="app-main">
+            {renderActiveComponent()}
+          </main>
 
-        <footer className="app-footer">
-          <div className="footer-content">
-            <p>✨ @glamupbyruchika_ ✨</p>
-            <p>💌 DM for bookings & inquiries 💄</p>
-          </div>
-        </footer>
+          <footer className="app-footer">
+            <div className="footer-content">
+              <p>✨ @glamupbyruchika_ ✨</p>
+              <p>💌 DM for bookings & inquiries 💄</p>
+            </div>
+          </footer>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }
 
