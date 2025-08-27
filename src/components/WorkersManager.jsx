@@ -75,39 +75,103 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
     });
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingWorker.name.trim() || !editingWorker.role.trim() || !editingWorker.paymentRate) {
       alert('Please fill in all fields');
       return;
     }
 
-    const updatedWorkers = workers.map(worker =>
-      worker.id === editingWorker.id
-        ? {
-            ...editingWorker,
-            name: editingWorker.name.trim(),
-            role: editingWorker.role.trim(),
-            paymentRate: parseFloat(editingWorker.paymentRate)
-          }
-        : worker
-    );
+    setIsSubmitting(true);
 
-    onWorkersUpdate(updatedWorkers);
-    setEditingWorker(null);
-    alert('Worker updated successfully! ✅');
+    try {
+      const workerData = {
+        name: editingWorker.name.trim(),
+        role: editingWorker.role.trim(),
+        paymentRate: parseFloat(editingWorker.paymentRate),
+        isOwner: editingWorker.isOwner
+      };
+
+      const result = await updateWorker(editingWorker.id, workerData);
+      
+      if (result.success) {
+        // Update local state
+        const updatedWorkers = workers.map(worker =>
+          worker.id === editingWorker.id
+            ? {
+                id: result.data.id,
+                name: result.data.name,
+                role: result.data.role,
+                paymentRate: result.data.payment_rate,
+                isOwner: result.data.is_owner
+              }
+            : worker
+        );
+        
+        onWorkersUpdate(updatedWorkers);
+        setEditingWorker(null);
+        alert('Worker updated successfully! ✨ Saved to cloud database!');
+      } else {
+        alert('Error updating worker: ' + result.error + '\n\nFalling back to local storage...');
+        
+        // Fallback to local storage
+        const updatedWorkers = workers.map(worker =>
+          worker.id === editingWorker.id
+            ? {
+                ...worker,
+                name: editingWorker.name.trim(),
+                role: editingWorker.role.trim(),
+                paymentRate: parseFloat(editingWorker.paymentRate)
+              }
+            : worker
+        );
+
+        onWorkersUpdate(updatedWorkers);
+        setEditingWorker(null);
+        alert('Worker updated locally! 📱');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDeleteWorker = (workerId) => {
+  const handleDeleteWorker = async (workerId) => {
     const worker = workers.find(w => w.id === workerId);
     
     if (worker.isOwner) {
-      alert('Cannot delete the owner account');
+      alert('Cannot delete the owner account 👑');
       return;
     }
 
-    if (confirm(`Are you sure you want to delete ${worker.name}?`)) {
-      onWorkersUpdate(workers.filter(w => w.id !== workerId));
-      alert('Worker deleted successfully');
+    if (!confirm(`Are you sure you want to delete ${worker.name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await deleteWorker(workerId);
+      
+      if (result.success) {
+        // Remove from local state
+        const updatedWorkers = workers.filter(w => w.id !== workerId);
+        onWorkersUpdate(updatedWorkers);
+        alert('Worker deleted successfully! 🗑️ Removed from cloud database!');
+      } else {
+        alert('Error deleting worker: ' + result.error + '\n\nFalling back to local storage...');
+        
+        // Fallback to local storage
+        const updatedWorkers = workers.filter(w => w.id !== workerId);
+        onWorkersUpdate(updatedWorkers);
+        alert('Worker deleted locally! 📱');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -152,6 +216,7 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
               className="form-input"
               placeholder="Enter worker's full name"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -165,6 +230,7 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
               className="form-input"
               placeholder="e.g., Assistant, Junior Artist, Hair Stylist"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -183,16 +249,23 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
               min="0"
               step="50"
               required
+              disabled={isSubmitting}
             />
             <small style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: '4px' }}>
               This is the fixed amount you pay this worker per service, regardless of client pricing
             </small>
           </div>
 
-          <button type="submit" className="btn btn-primary">
+          <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
             <Plus size={20} />
-            Add Worker
+            {isSubmitting ? 'Adding Worker... ⏳' : 'Add Worker 👥'}
           </button>
+          
+          {isSubmitting && (
+            <p style={{ textAlign: 'center', color: '#6b7280', marginTop: '8px' }}>
+              ☁️ Saving to cloud database...
+            </p>
+          )}
         </form>
       </div>
 
@@ -225,12 +298,14 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
                           <button
                             onClick={handleSaveEdit}
                             className="btn btn-small btn-success"
+                            disabled={isSubmitting}
                           >
                             <Save size={16} />
                           </button>
                           <button
                             onClick={() => setEditingWorker(null)}
                             className="btn btn-small btn-secondary"
+                            disabled={isSubmitting}
                           >
                             <X size={16} />
                           </button>
@@ -246,7 +321,7 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
                             value={editingWorker.name}
                             onChange={(e) => handleChange(e, true)}
                             className="form-input"
-                            disabled={worker.isOwner}
+                            disabled={worker.isOwner || isSubmitting}
                           />
                         </div>
                         
@@ -258,6 +333,7 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
                             value={editingWorker.role}
                             onChange={(e) => handleChange(e, true)}
                             className="form-input"
+                            disabled={isSubmitting}
                           />
                         </div>
                         
@@ -271,6 +347,7 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
                             className="form-input"
                             min="0"
                             step="50"
+                            disabled={isSubmitting}
                             disabled={worker.isOwner}
                           />
                         </div>
@@ -302,6 +379,7 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
                           <button
                             onClick={() => handleEditWorker(worker)}
                             className="btn btn-small btn-secondary"
+                            disabled={isSubmitting}
                           >
                             <Edit2 size={16} />
                           </button>
@@ -309,6 +387,7 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
                             <button
                               onClick={() => handleDeleteWorker(worker.id)}
                               className="btn btn-small btn-danger"
+                              disabled={isSubmitting}
                             >
                               <Trash2 size={16} />
                             </button>
