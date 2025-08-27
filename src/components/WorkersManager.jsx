@@ -347,8 +347,7 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
                             className="form-input"
                             min="0"
                             step="50"
-                            disabled={isSubmitting}
-                            disabled={worker.isOwner}
+                            disabled={isSubmitting || worker.isOwner}
                           />
                         </div>
                       </div>
