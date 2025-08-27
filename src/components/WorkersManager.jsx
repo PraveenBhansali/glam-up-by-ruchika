@@ -67,7 +67,6 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
       setIsSubmitting(false);
     }
   };
-  };
 
   const handleEditWorker = (worker) => {
     setEditingWorker({
