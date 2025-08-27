@@ -197,16 +197,8 @@ function App() {
       <div className="app-container">
         <header className="app-header">
           <div className="header-content">
-            <div className="header-sparkles">✨</div>
             <h1>💄 Glam Up by Ruchika</h1>
-            <p>Ruchika Bhansali | Makeup Artist</p>
-            <div className="header-credentials">
-              <div className="credential-item">💄 Professionally Certified Makeup Artist</div>
-              <div className="credential-item">📍 Gadag, Karnataka (Open to travel)</div>
-              <div className="credential-item">✨ Bridal | Non-Bridal | Pre-Wedding</div>
-            </div>
-            <div className="header-tagline">💌 Creating beautiful transformations</div>
-            <div className="header-sparkles">✨</div>
+            <p>Ruchika Bhansali | Certified Makeup Artist | Gadag, Karnataka</p>
           </div>
         </header>
 

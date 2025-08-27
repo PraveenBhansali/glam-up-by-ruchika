@@ -1,8 +1,31 @@
 import { supabase } from '../supabase.js'
 
-// Create a new booking
-export const createBooking = async (bookingData) => {
+// Test Supabase connection
+export const testConnection = async () => {
   try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('count', { count: 'exact', head: true })
+    
+    if (error) throw error
+    return { success: true }
+  } catch (error) {
+    console.error('Supabase connection test failed:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// Create a new booking with retry logic
+export const createBooking = async (bookingData, retryCount = 0) => {
+  try {
+    // Test connection first on first attempt
+    if (retryCount === 0) {
+      const connectionTest = await testConnection()
+      if (!connectionTest.success) {
+        throw new Error('Database connection failed: ' + connectionTest.error)
+      }
+    }
+
     const { data, error } = await supabase
       .from('bookings')
       .insert([
@@ -24,7 +47,15 @@ export const createBooking = async (bookingData) => {
     if (error) throw error
     return { success: true, data: data[0] }
   } catch (error) {
-    console.error('Error creating booking:', error)
+    console.error('Error creating booking (attempt ' + (retryCount + 1) + '):', error)
+    
+    // Retry once if it's the first attempt and not a validation error
+    if (retryCount === 0 && !error.message.includes('violates')) {
+      console.log('Retrying booking creation...')
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+      return createBooking(bookingData, 1)
+    }
+    
     return { success: false, error: error.message }
   }
 }
