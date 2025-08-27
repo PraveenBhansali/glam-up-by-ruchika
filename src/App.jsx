@@ -6,6 +6,9 @@ import CompletedBookings from './components/CompletedBookings';
 import ServicesManager from './components/ServicesManager';
 import WorkersManager from './components/WorkersManager';
 import BookingHistory from './components/BookingHistory';
+import { getBookings } from './services/bookingService';
+import { getServices } from './services/servicesService';
+import { getWorkers } from './services/workersService';
 import './App.css';
 
 function App() {
@@ -22,30 +25,108 @@ function App() {
     { id: 1, name: 'Ruchika Bhansali', role: 'Certified Makeup Artist', paymentRate: 0, isOwner: true },
     { id: 2, name: 'Assistant', role: 'Makeup Assistant', paymentRate: 800, isOwner: false }
   ]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load data from localStorage on component mount
+  // Load data from Supabase on component mount
   useEffect(() => {
-    const savedBookings = localStorage.getItem('glamupbyruchika_bookings');
-    const savedServices = localStorage.getItem('glamupbyruchika_services');
-    const savedWorkers = localStorage.getItem('glamupbyruchika_workers');
+    const loadData = async () => {
+      setIsLoading(true);
+      
+      try {
+        // Load bookings from Supabase
+        const bookingsResult = await getBookings();
+        if (bookingsResult.success) {
+          // Convert Supabase data to app format
+          const formattedBookings = bookingsResult.data.map(booking => ({
+            id: booking.id,
+            clientName: booking.name,
+            clientPhone: booking.phone,
+            date: booking.date,
+            time: booking.time,
+            primaryService: services.find(s => s.name === booking.service)?.id || 1,
+            estimatedPeople: booking.estimated_people || 1,
+            notes: booking.notes,
+            status: booking.status,
+            createdAt: booking.created_at,
+            members: [],
+            totalAmount: booking.service_price || 0
+          }));
+          setBookings(formattedBookings);
+        } else {
+          console.log('Failed to load bookings from Supabase, using localStorage fallback');
+          const savedBookings = localStorage.getItem('glamupbyruchika_bookings');
+          if (savedBookings) setBookings(JSON.parse(savedBookings));
+        }
 
-    if (savedBookings) setBookings(JSON.parse(savedBookings));
-    if (savedServices) setServices(JSON.parse(savedServices));
-    if (savedWorkers) setWorkers(JSON.parse(savedWorkers));
+        // Load services from Supabase
+        const servicesResult = await getServices();
+        if (servicesResult.success) {
+          const formattedServices = servicesResult.data.map(service => ({
+            id: service.id,
+            name: service.name,
+            clientPrice: service.client_price,
+            description: service.description
+          }));
+          setServices(formattedServices);
+        } else {
+          console.log('Failed to load services from Supabase, using default services');
+          const savedServices = localStorage.getItem('glamupbyruchika_services');
+          if (savedServices) setServices(JSON.parse(savedServices));
+        }
+
+        // Load workers from Supabase
+        const workersResult = await getWorkers();
+        if (workersResult.success) {
+          const formattedWorkers = workersResult.data.map(worker => ({
+            id: worker.id,
+            name: worker.name,
+            role: worker.role,
+            paymentRate: worker.payment_rate,
+            isOwner: worker.is_owner
+          }));
+          setWorkers(formattedWorkers);
+        } else {
+          console.log('Failed to load workers from Supabase, using default workers');
+          const savedWorkers = localStorage.getItem('glamupbyruchika_workers');
+          if (savedWorkers) setWorkers(JSON.parse(savedWorkers));
+        }
+
+      } catch (error) {
+        console.error('Error loading data:', error);
+        // Fallback to localStorage
+        const savedBookings = localStorage.getItem('glamupbyruchika_bookings');
+        const savedServices = localStorage.getItem('glamupbyruchika_services');
+        const savedWorkers = localStorage.getItem('glamupbyruchika_workers');
+
+        if (savedBookings) setBookings(JSON.parse(savedBookings));
+        if (savedServices) setServices(JSON.parse(savedServices));
+        if (savedWorkers) setWorkers(JSON.parse(savedWorkers));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
-  // Save data to localStorage whenever state changes
+  // Save data to localStorage whenever state changes (backup)
   useEffect(() => {
-    localStorage.setItem('glamupbyruchika_bookings', JSON.stringify(bookings));
-  }, [bookings]);
+    if (!isLoading) {
+      localStorage.setItem('glamupbyruchika_bookings', JSON.stringify(bookings));
+    }
+  }, [bookings, isLoading]);
 
   useEffect(() => {
-    localStorage.setItem('glamupbyruchika_services', JSON.stringify(services));
-  }, [services]);
+    if (!isLoading) {
+      localStorage.setItem('glamupbyruchika_services', JSON.stringify(services));
+    }
+  }, [services, isLoading]);
 
   useEffect(() => {
-    localStorage.setItem('glamupbyruchika_workers', JSON.stringify(workers));
-  }, [workers]);
+    if (!isLoading) {
+      localStorage.setItem('glamupbyruchika_workers', JSON.stringify(workers));
+    }
+  }, [workers, isLoading]);
 
   // Auto-update booking statuses
   useEffect(() => {
