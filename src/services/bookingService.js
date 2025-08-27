@@ -8,13 +8,15 @@ export const createBooking = async (bookingData) => {
       .insert([
         {
           name: bookingData.name,
-          email: bookingData.email,
-          phone: bookingData.phone,
+          email: bookingData.email || '',
+          phone: bookingData.phone || '',
           service: bookingData.service,
           date: bookingData.date,
           time: bookingData.time,
-          notes: bookingData.notes,
-          created_at: new Date().toISOString()
+          notes: bookingData.notes || '',
+          estimated_people: bookingData.estimated_people || 1,
+          service_price: bookingData.service_price || 0,
+          status: bookingData.status || 'upcoming'
         }
       ])
       .select()
@@ -39,6 +41,51 @@ export const getBookings = async () => {
     return { success: true, data }
   } catch (error) {
     console.error('Error fetching bookings:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// Update a booking
+export const updateBooking = async (id, bookingData) => {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({
+        name: bookingData.name,
+        email: bookingData.email,
+        phone: bookingData.phone,
+        service: bookingData.service,
+        date: bookingData.date,
+        time: bookingData.time,
+        notes: bookingData.notes,
+        estimated_people: bookingData.estimated_people,
+        service_price: bookingData.service_price,
+        status: bookingData.status
+      })
+      .eq('id', id)
+      .select()
+
+    if (error) throw error
+    return { success: true, data: data[0] }
+  } catch (error) {
+    console.error('Error updating booking:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// Update booking status only
+export const updateBookingStatus = async (id, status) => {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({ status })
+      .eq('id', id)
+      .select()
+
+    if (error) throw error
+    return { success: true, data: data[0] }
+  } catch (error) {
+    console.error('Error updating booking status:', error)
     return { success: false, error: error.message }
   }
 }

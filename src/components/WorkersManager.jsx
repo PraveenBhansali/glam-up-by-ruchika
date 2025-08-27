@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, User, DollarSign, Save, X } from 'lucide-react';
+import { createWorker, updateWorker, deleteWorker } from '../services/workersService';
 
 const WorkersManager = ({ workers, onWorkersUpdate }) => {
   const [newWorker, setNewWorker] = useState({
@@ -8,8 +9,9 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
     paymentRate: ''
   });
   const [editingWorker, setEditingWorker] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddWorker = (e) => {
+  const handleAddWorker = async (e) => {
     e.preventDefault();
     
     if (!newWorker.name.trim() || !newWorker.role.trim() || !newWorker.paymentRate) {
@@ -17,17 +19,54 @@ const WorkersManager = ({ workers, onWorkersUpdate }) => {
       return;
     }
 
-    const worker = {
-      id: Date.now(),
-      name: newWorker.name.trim(),
-      role: newWorker.role.trim(),
-      paymentRate: parseFloat(newWorker.paymentRate),
-      isOwner: false
-    };
+    setIsSubmitting(true);
 
-    onWorkersUpdate([...workers, worker]);
-    setNewWorker({ name: '', role: '', paymentRate: '' });
-    alert('Worker added successfully! 👥');
+    try {
+      const workerData = {
+        name: newWorker.name.trim(),
+        role: newWorker.role.trim(),
+        paymentRate: parseFloat(newWorker.paymentRate),
+        isOwner: false
+      };
+
+      const result = await createWorker(workerData);
+      
+      if (result.success) {
+        // Add to local state
+        const newWorkerFormatted = {
+          id: result.data.id,
+          name: result.data.name,
+          role: result.data.role,
+          paymentRate: result.data.payment_rate,
+          isOwner: result.data.is_owner
+        };
+        
+        onWorkersUpdate([...workers, newWorkerFormatted]);
+        setNewWorker({ name: '', role: '', paymentRate: '' });
+        alert('Worker added successfully! 👥 Saved to cloud database!');
+      } else {
+        alert('Error adding worker: ' + result.error + '\n\nFalling back to local storage...');
+        
+        // Fallback to local storage
+        const worker = {
+          id: Date.now(),
+          name: newWorker.name.trim(),
+          role: newWorker.role.trim(),
+          paymentRate: parseFloat(newWorker.paymentRate),
+          isOwner: false
+        };
+
+        onWorkersUpdate([...workers, worker]);
+        setNewWorker({ name: '', role: '', paymentRate: '' });
+        alert('Worker added locally! 📱');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   };
 
   const handleEditWorker = (worker) => {

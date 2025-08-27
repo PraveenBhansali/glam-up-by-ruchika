@@ -33,33 +33,10 @@ function App() {
       setIsLoading(true);
       
       try {
-        // Load bookings from Supabase
-        const bookingsResult = await getBookings();
-        if (bookingsResult.success) {
-          // Convert Supabase data to app format
-          const formattedBookings = bookingsResult.data.map(booking => ({
-            id: booking.id,
-            clientName: booking.name,
-            clientPhone: booking.phone,
-            date: booking.date,
-            time: booking.time,
-            primaryService: services.find(s => s.name === booking.service)?.id || 1,
-            estimatedPeople: booking.estimated_people || 1,
-            notes: booking.notes,
-            status: booking.status,
-            createdAt: booking.created_at,
-            members: [],
-            totalAmount: booking.service_price || 0
-          }));
-          setBookings(formattedBookings);
-        } else {
-          console.log('Failed to load bookings from Supabase, using localStorage fallback');
-          const savedBookings = localStorage.getItem('glamupbyruchika_bookings');
-          if (savedBookings) setBookings(JSON.parse(savedBookings));
-        }
-
-        // Load services from Supabase
+        // Load services FIRST (needed for booking mapping)
         const servicesResult = await getServices();
+        let loadedServices = services; // fallback to default
+        
         if (servicesResult.success) {
           const formattedServices = servicesResult.data.map(service => ({
             id: service.id,
@@ -68,13 +45,18 @@ function App() {
             description: service.description
           }));
           setServices(formattedServices);
+          loadedServices = formattedServices;
         } else {
           console.log('Failed to load services from Supabase, using default services');
           const savedServices = localStorage.getItem('glamupbyruchika_services');
-          if (savedServices) setServices(JSON.parse(savedServices));
+          if (savedServices) {
+            const parsedServices = JSON.parse(savedServices);
+            setServices(parsedServices);
+            loadedServices = parsedServices;
+          }
         }
 
-        // Load workers from Supabase
+        // Load workers
         const workersResult = await getWorkers();
         if (workersResult.success) {
           const formattedWorkers = workersResult.data.map(worker => ({
@@ -89,6 +71,31 @@ function App() {
           console.log('Failed to load workers from Supabase, using default workers');
           const savedWorkers = localStorage.getItem('glamupbyruchika_workers');
           if (savedWorkers) setWorkers(JSON.parse(savedWorkers));
+        }
+
+        // Load bookings AFTER services are loaded
+        const bookingsResult = await getBookings();
+        if (bookingsResult.success) {
+          // Convert Supabase data to app format using loaded services
+          const formattedBookings = bookingsResult.data.map(booking => ({
+            id: booking.id,
+            clientName: booking.name,
+            clientPhone: booking.phone,
+            date: booking.date,
+            time: booking.time,
+            primaryService: loadedServices.find(s => s.name === booking.service)?.id || 1,
+            estimatedPeople: booking.estimated_people || 1,
+            notes: booking.notes,
+            status: booking.status,
+            createdAt: booking.created_at,
+            members: [],
+            totalAmount: booking.service_price || 0
+          }));
+          setBookings(formattedBookings);
+        } else {
+          console.log('Failed to load bookings from Supabase, using localStorage fallback');
+          const savedBookings = localStorage.getItem('glamupbyruchika_bookings');
+          if (savedBookings) setBookings(JSON.parse(savedBookings));
         }
 
       } catch (error) {
