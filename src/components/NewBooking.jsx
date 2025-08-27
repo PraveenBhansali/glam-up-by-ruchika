@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, User, Phone, Calendar, Clock, DollarSign, Users } from 'lucide-react';
+import { createBooking } from '../services/bookingService';
 
 const NewBooking = ({ services, onBookingCreate }) => {
   const [formData, setFormData] = useState({
@@ -11,36 +12,103 @@ const NewBooking = ({ services, onBookingCreate }) => {
     estimatedPeople: 1,
     notes: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
-    const booking = {
-      id: Date.now(),
-      ...formData,
-      primaryService: parseInt(formData.primaryService),
-      estimatedPeople: parseInt(formData.estimatedPeople),
-      status: 'upcoming',
-      createdAt: new Date().toISOString(),
-      members: [],
-      totalAmount: 0
-    };
-    
-    onBookingCreate(booking);
-    
-    // Reset form
-    setFormData({
-      clientName: '',
-      clientPhone: '',
-      date: '',
-      time: '',
-      primaryService: '',
-      estimatedPeople: 1,
-      notes: ''
-    });
-    
-    // Show success message
-    alert('Booking created successfully! 🎉✨');
+    try {
+      // Find the selected service
+      const selectedService = services.find(s => s.id === parseInt(formData.primaryService));
+      
+      const bookingData = {
+        name: formData.clientName,
+        email: '', // We can add email field later if needed
+        phone: formData.clientPhone,
+        service: selectedService ? selectedService.name : '',
+        date: formData.date,
+        time: formData.time,
+        notes: formData.notes,
+        estimated_people: parseInt(formData.estimatedPeople),
+        service_price: selectedService ? selectedService.clientPrice : 0,
+        status: 'upcoming'
+      };
+
+      const result = await createBooking(bookingData);
+      
+      if (result.success) {
+        // Create booking object for local state (backward compatibility)
+        const booking = {
+          id: result.data.id,
+          clientName: formData.clientName,
+          clientPhone: formData.clientPhone,
+          date: formData.date,
+          time: formData.time,
+          primaryService: parseInt(formData.primaryService),
+          estimatedPeople: parseInt(formData.estimatedPeople),
+          notes: formData.notes,
+          status: 'upcoming',
+          createdAt: result.data.created_at,
+          members: [],
+          totalAmount: selectedService ? selectedService.clientPrice : 0
+        };
+        
+        onBookingCreate(booking);
+        
+        // Reset form
+        setFormData({
+          clientName: '',
+          clientPhone: '',
+          date: '',
+          time: '',
+          primaryService: '',
+          estimatedPeople: 1,
+          notes: ''
+        });
+        
+        // Show success message
+        alert('Booking created successfully! 🎉✨ Your data is now saved online!');
+      } else {
+        alert('Error creating booking: ' + result.error + '\n\nFalling back to local storage...');
+        
+        // Fallback to local storage if Supabase fails
+        const booking = {
+          id: Date.now(),
+          clientName: formData.clientName,
+          clientPhone: formData.clientPhone,
+          date: formData.date,
+          time: formData.time,
+          primaryService: parseInt(formData.primaryService),
+          estimatedPeople: parseInt(formData.estimatedPeople),
+          notes: formData.notes,
+          status: 'upcoming',
+          createdAt: new Date().toISOString(),
+          members: [],
+          totalAmount: selectedService ? selectedService.clientPrice : 0
+        };
+        
+        onBookingCreate(booking);
+        
+        // Reset form
+        setFormData({
+          clientName: '',
+          clientPhone: '',
+          date: '',
+          time: '',
+          primaryService: '',
+          estimatedPeople: 1,
+          notes: ''
+        });
+        
+        alert('Booking saved locally! 📱');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e) => {
